@@ -9,6 +9,6 @@ export const fields: ListItem[] = [
   { id: 'unitAmount', label: 'Unit Price' },
   { id: 'hoursWorked', label: 'Hours Worked' },
   { id: 'hourlyRate', label: 'Hourly Rate' },
-  { id: 'amount', label: 'Amount' },
+  { id: 'amount', label: 'Total Charge' },
   { id: 'notes', label: 'Notes' },
 ]

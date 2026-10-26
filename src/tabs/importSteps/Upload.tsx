@@ -54,8 +54,8 @@ function Upload({ onNext, nextLabel, onParsed }: UploadProps) {
 
   return (
     <>
-      <h4 className='mt-4 mb-3 muted'>Upload CSV</h4>
-      <FormGroup controlId={FILE_INPUT_ID} className="mb-3 required">
+      <h4 className='mt-4 muted'>Upload CSV</h4>
+      <FormGroup controlId={FILE_INPUT_ID} className="required">
         <FormLabel>File Upload</FormLabel>
         <InputGroup hasValidation>
           <FormControl
@@ -70,7 +70,7 @@ function Upload({ onNext, nextLabel, onParsed }: UploadProps) {
           <Feedback type="invalid">{errors.file?.message}</Feedback>
         </InputGroup>
       </FormGroup>
-      <FormGroup as={Row}  controlId="startRow" className="mb-3">
+      <FormGroup as={Row}  controlId="startRow">
         <FormLabel xs='auto' column>Start at Row:</FormLabel>
         <Col>
           <FormControl type="number" min={0} {...register('startRow', { valueAsNumber: true })} />

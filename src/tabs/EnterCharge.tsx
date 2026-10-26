@@ -28,7 +28,7 @@ type ChargeFormValues = {
   notes: string
 }
 
-const clients = ['Client 1', 'Client 2', 'Client 3']
+const clients = ['Billing Group 1', 'Billing Group 2', 'Billing Group 3']
 
 const chargeTypes = ['Rush', 'Apply Custom Labels', 'Forward Packages', 'Change Ship Method']
 
@@ -82,14 +82,14 @@ function EnterCharge() {
 
   return (
     <Form onSubmit={handleSubmit(onSubmit)}>
-      <div className="row mb-3">
+      <div className="row">
         <FormGroup className="col required" controlId="client">
-          <FormLabel>Client</FormLabel>
+          <FormLabel>Billing Group</FormLabel>
           <FormSelect
-            {...register('client', { required: 'Client is required' })}
+            {...register('client', { required: 'Billing Group is required' })}
             isInvalid={!!errors.client}
           >
-            <option value="">Select a client</option>
+            <option value="">Select a billing group</option>
             {clients.map((client) => (
               <option key={client} value={client}>
                 {client}
