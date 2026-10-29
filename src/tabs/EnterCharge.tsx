@@ -18,6 +18,8 @@ type ChargeBasis = 'Flat' | 'Hourly'
 
 type ChargeFormValues = {
   client: string
+  sortGroup: string
+  referenceNumber: string
   activityDate: string
   charge: string
   chargeBasis: ChargeBasis
@@ -29,6 +31,8 @@ type ChargeFormValues = {
 }
 
 const clients = ['Billing Group 1', 'Billing Group 2', 'Billing Group 3']
+
+const sortGroups = ['Sort Group 1', 'Sort Group 2', 'Sort Group 3']
 
 const chargeTypes = ['Rush', 'Apply Custom Labels', 'Forward Packages', 'Change Ship Method']
 
@@ -49,6 +53,8 @@ function EnterCharge() {
   } = useForm<ChargeFormValues>({
     defaultValues: {
       client: '',
+      sortGroup: '',
+      referenceNumber: '',
       activityDate: '',
       charge: '',
       chargeBasis: 'Flat',
@@ -98,6 +104,42 @@ function EnterCharge() {
           </FormSelect>
           <Feedback type="invalid">{errors.client?.message}</Feedback>
         </FormGroup>
+        {/* Sort Group belongs to Billing Group 2 and Reference Number to Billing Group 3; each is
+            unregistered when hidden so a value from another billing group isn't submitted */}
+        {client === 'Billing Group 2' && (
+          <FormGroup className="col required" controlId="sortGroup">
+            <FormLabel>Sort Group</FormLabel>
+            <FormSelect
+              {...register('sortGroup', { required: 'Sort Group is required', shouldUnregister: true })}
+              isInvalid={!!errors.sortGroup}
+            >
+              <option value="">Select a sort group</option>
+              {sortGroups.map((sortGroup) => (
+                <option key={sortGroup} value={sortGroup}>
+                  {sortGroup}
+                </option>
+              ))}
+            </FormSelect>
+            <Feedback type="invalid">{errors.sortGroup?.message}</Feedback>
+          </FormGroup>
+        )}
+        {client === 'Billing Group 3' && (
+          <FormGroup className="col required" controlId="referenceNumber">
+            <FormLabel>Reference Number</FormLabel>
+            <FormControl
+              type="text"
+              {...register('referenceNumber', {
+                required: 'Reference Number is required',
+                shouldUnregister: true,
+              })}
+              isInvalid={!!errors.referenceNumber}
+            />
+            <Feedback type="invalid">{errors.referenceNumber?.message}</Feedback>
+          </FormGroup>
+        )}
+      </div>
+
+      <div className="row">
         <FormGroup className="col required" controlId="activityDate">
           <FormLabel>Activity Date</FormLabel>
           <FormControl

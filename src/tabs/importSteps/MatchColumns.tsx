@@ -3,6 +3,7 @@ import {
   Button,
   Feedback,
   FormCheck,
+  FormControl,
   FormGroup,
   FormLabel,
   FormSelect,
@@ -14,6 +15,12 @@ import { fields } from './fields.ts'
 import { type ChargeRow, type ColumnMapping, type ImportedData, type StepProps } from './types.ts'
 
 const clients = ['Billing Group 1', 'Billing Group 2', 'Billing Group 3']
+
+const sortGroups = ['Sort Group 1', 'Sort Group 2', 'Sort Group 3']
+
+// Sort Group only applies to this billing group, and Reference Number only to the next
+const SORT_GROUP_CLIENT = 'Billing Group 2'
+const REFERENCE_NUMBER_CLIENT = 'Billing Group 3'
 
 // 'Flat' and 'Hourly' become every row's Charge Basis; 'column' reads it from the matched column
 const chargeBasisOptions = [
@@ -35,24 +42,44 @@ const clientField = { id: 'client', label: 'Billing Group' }
 type MatchColumnsFormValues = {
   client: string
   useClientColumn: boolean
+  sortGroup: string
+  useSortGroupColumn: boolean
+  referenceNumber: string
+  useReferenceNumberColumn: boolean
   chargeBasis: (typeof chargeBasisOptions)[number]['value']
   calculateAmount: (typeof calculateAmountOptions)[number]['value']
   columns: ColumnMapping
 }
 
 // Which accessorial fields must be matched to a column, given the options chosen above.
-// Mirrors the matchableFields filter: every shown field except Notes is required.
+// Mirrors the matchableFields filter: every shown field except Notes is required, as are Sort Group
+// and Reference Number unless they're only shown because Billing Group comes from a column.
 function isColumnRequired(
   fieldId: string,
   {
+    client,
     useClientColumn,
+    useSortGroupColumn,
+    useReferenceNumberColumn,
     chargeBasis,
     calculateAmount,
-  }: Pick<MatchColumnsFormValues, 'useClientColumn' | 'chargeBasis' | 'calculateAmount'>,
+  }: Pick<
+    MatchColumnsFormValues,
+    | 'client'
+    | 'useClientColumn'
+    | 'useSortGroupColumn'
+    | 'useReferenceNumberColumn'
+    | 'chargeBasis'
+    | 'calculateAmount'
+  >,
 ) {
   switch (fieldId) {
     case 'client':
       return useClientColumn
+    case 'sortGroup':
+      return client === SORT_GROUP_CLIENT && useSortGroupColumn
+    case 'referenceNumber':
+      return client === REFERENCE_NUMBER_CLIENT && useReferenceNumberColumn
     case 'charge':
     case 'activityDate':
       return true
@@ -88,6 +115,10 @@ function MatchColumns({ onBack, onNext, nextLabel, data, onMatched }: MatchColum
     defaultValues: {
       client: '',
       useClientColumn: false,
+      sortGroup: '',
+      useSortGroupColumn: false,
+      referenceNumber: '',
+      useReferenceNumberColumn: false,
       chargeBasis: 'column',
       calculateAmount: 'yes',
       columns: Object.fromEntries([clientField, ...fields].map((field) => [field.id, ''])),
@@ -95,7 +126,10 @@ function MatchColumns({ onBack, onNext, nextLabel, data, onMatched }: MatchColum
   })
 
   const columns = useWatch({ control, name: 'columns' })
+  const client = useWatch({ control, name: 'client' })
   const useClientColumn = useWatch({ control, name: 'useClientColumn' })
+  const useSortGroupColumn = useWatch({ control, name: 'useSortGroupColumn' })
+  const useReferenceNumberColumn = useWatch({ control, name: 'useReferenceNumberColumn' })
   const chargeBasis = useWatch({ control, name: 'chargeBasis' })
   const calculateAmountChoice = useWatch({ control, name: 'calculateAmount' })
   const shouldCalculateAmount = calculateAmountChoice === 'yes'
@@ -104,9 +138,14 @@ function MatchColumns({ onBack, onNext, nextLabel, data, onMatched }: MatchColum
 
   // Charge Basis and Amount only need a column when they aren't supplied by the options above,
   // and a fixed Charge Basis makes the other basis's inputs irrelevant. Client is only matched when
-  // "Use column instead" is checked.
+  // "Use column instead" is checked. Sort Group and Reference Number are matched when their own
+  // "Use column instead" is checked, or when Billing Group comes from a column (any row may need them).
   const matchableFields = [...(useClientColumn ? [clientField] : []), ...fields].filter(
     (field) =>
+      (field.id !== 'sortGroup' || useClientColumn || (client === SORT_GROUP_CLIENT && useSortGroupColumn)) &&
+      (field.id !== 'referenceNumber' ||
+        useClientColumn ||
+        (client === REFERENCE_NUMBER_CLIENT && useReferenceNumberColumn)) &&
       (field.id !== 'chargeBasis' || chargeBasis === 'column') &&
       (field.id !== 'amount' || !shouldCalculateAmount) &&
       !(chargeBasis === 'Flat' && (field.id === 'hoursWorked' || field.id === 'hourlyRate')) &&
@@ -116,12 +155,27 @@ function MatchColumns({ onBack, onNext, nextLabel, data, onMatched }: MatchColum
   // Validates the form first; only builds the rows and advances once every required value is set
   const handleNext = handleSubmit((values) => {
     const rows = (data?.rows ?? []).map((row) => {
-      const chargeRow: ChargeRow = Object.fromEntries(
-        fields.map((field) => {
-          const column = values.columns[field.id]
-          return [field.id, column ? (row[column] ?? '') : '']
-        }),
-      )
+      const columnValue = (fieldId: string) => {
+        const column = values.columns[fieldId]
+        return column ? (row[column] ?? '') : ''
+      }
+      const chargeRow: ChargeRow = Object.fromEntries(fields.map((field) => [field.id, columnValue(field.id)]))
+      // With a selected Billing Group, Sort Group and Reference Number only apply to their own billing
+      // group, and come from the value entered above unless their "Use column instead" is checked
+      if (!values.useClientColumn) {
+        chargeRow.sortGroup =
+          values.client !== SORT_GROUP_CLIENT
+            ? ''
+            : values.useSortGroupColumn
+              ? columnValue('sortGroup')
+              : values.sortGroup
+        chargeRow.referenceNumber =
+          values.client !== REFERENCE_NUMBER_CLIENT
+            ? ''
+            : values.useReferenceNumberColumn
+              ? columnValue('referenceNumber')
+              : values.referenceNumber
+      }
       if (values.chargeBasis !== 'column') chargeRow.chargeBasis = values.chargeBasis
       if (values.calculateAmount === 'yes') chargeRow.amount = calculateAmount(chargeRow)
       return chargeRow
@@ -167,6 +221,77 @@ function MatchColumns({ onBack, onNext, nextLabel, data, onMatched }: MatchColum
           })}
         />
       </FormGroup>
+      {/* Sort Group belongs to Billing Group 2 and Reference Number to Billing Group 3. Each is
+          unregistered when hidden so a value from another billing group doesn't carry over. */}
+      {client === SORT_GROUP_CLIENT && (
+        <FormGroup className={useSortGroupColumn ? undefined : 'required'} controlId="sortGroup">
+          <FormLabel>Sort Group</FormLabel>
+          <FormSelect
+            {...register('sortGroup', {
+              shouldUnregister: true,
+              validate: (value, values) => values.useSortGroupColumn || value !== '' || 'Sort Group is required',
+            })}
+            disabled={useSortGroupColumn}
+            isInvalid={!!errors.sortGroup}
+          >
+            <option value="">Select a sort group</option>
+            {sortGroups.map((sortGroup) => (
+              <option key={sortGroup} value={sortGroup}>
+                {sortGroup}
+              </option>
+            ))}
+          </FormSelect>
+          <Feedback type="invalid">{errors.sortGroup?.message}</Feedback>
+          <FormCheck
+            className="mt-2"
+            id="useSortGroupColumn"
+            label="Use column instead"
+            {...register('useSortGroupColumn', {
+              shouldUnregister: true,
+              onChange: (event) => {
+                if (event.target.checked) {
+                  setValue('sortGroup', '')
+                  clearErrors('sortGroup')
+                } else {
+                  clearErrors('columns.sortGroup')
+                }
+              },
+            })}
+          />
+        </FormGroup>
+      )}
+      {client === REFERENCE_NUMBER_CLIENT && (
+        <FormGroup className={useReferenceNumberColumn ? undefined : 'required'} controlId="referenceNumber">
+          <FormLabel>Reference Number</FormLabel>
+          <FormControl
+            type="text"
+            {...register('referenceNumber', {
+              shouldUnregister: true,
+              validate: (value, values) =>
+                values.useReferenceNumberColumn || value.trim() !== '' || 'Reference Number is required',
+            })}
+            disabled={useReferenceNumberColumn}
+            isInvalid={!!errors.referenceNumber}
+          />
+          <Feedback type="invalid">{errors.referenceNumber?.message}</Feedback>
+          <FormCheck
+            className="mt-2"
+            id="useReferenceNumberColumn"
+            label="Use column instead"
+            {...register('useReferenceNumberColumn', {
+              shouldUnregister: true,
+              onChange: (event) => {
+                if (event.target.checked) {
+                  setValue('referenceNumber', '')
+                  clearErrors('referenceNumber')
+                } else {
+                  clearErrors('columns.referenceNumber')
+                }
+              },
+            })}
+          />
+        </FormGroup>
+      )}
       <FormGroup className="required">
         <FormLabel className='d-block'>Charge Basis</FormLabel>
         {chargeBasisOptions.map((option) => (
@@ -224,7 +349,10 @@ function MatchColumns({ onBack, onNext, nextLabel, data, onMatched }: MatchColum
                 <div className="col-4">
                   {field.label}
                   {isColumnRequired(field.id, {
+                    client,
                     useClientColumn,
+                    useSortGroupColumn,
+                    useReferenceNumberColumn,
                     chargeBasis,
                     calculateAmount: calculateAmountChoice,
                   }) && ' *'}
