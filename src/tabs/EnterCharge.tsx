@@ -153,17 +153,17 @@ function EnterCharge() {
 
       <FormGroup className="required" controlId="charge">
         <FormLabel>Charge Type</FormLabel>
-        <FormControl
-          type="text"
-          list="chargeTypes"
+        <FormSelect
           {...register('charge', { required: 'Charge Type is required', disabled: !client })}
           isInvalid={!!errors.charge}
-        />
-        <datalist id="chargeTypes">
+        >
+          <option value="">Select a charge type</option>
           {chargeTypes.map((chargeType) => (
-            <option key={chargeType} value={chargeType} />
+            <option key={chargeType} value={chargeType}>
+              {chargeType}
+            </option>
           ))}
-        </datalist>
+        </FormSelect>
         <Feedback type="invalid">{errors.charge?.message}</Feedback>
       </FormGroup>
 
